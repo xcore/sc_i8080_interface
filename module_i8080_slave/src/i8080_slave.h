@@ -19,7 +19,7 @@ typedef struct p_i8080
 
 
 
-void i8080_slave(	chanend c8080,
+unsigned char i8080_slave(	chanend c8080,
 					i8080_handler &i8080_port);
 
 #endif /* I8080_SLAVE_H_ */
