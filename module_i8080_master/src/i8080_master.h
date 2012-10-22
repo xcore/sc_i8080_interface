@@ -18,6 +18,8 @@ typedef struct p_i8080
 	out port reset;
 } i8080_handler;
 
+#define A0_0	0
+#define A0_1	1
 /*
  * T_AW8
  * Address setup time
@@ -32,7 +34,7 @@ typedef struct p_i8080
  *
  * Time between writing of data and WR going up.
  */
-#define T_DS8	100
+#define T_DS8	5
 
 /*
  * T_DH8
@@ -40,7 +42,7 @@ typedef struct p_i8080
  *
  * Time between WR going up and A0/CS going up
  */
-#define T_DH8	100
+#define T_DH8	10
 
 /*
  * T_WAIT
@@ -48,7 +50,7 @@ typedef struct p_i8080
  *
  * Should be determined by the time taken by the slave.
  */
-#define T_WAIT	100
+#define T_WAIT	10
 
 /*
  * T_ACC8
@@ -57,7 +59,7 @@ typedef struct p_i8080
  * Time between RD going down and data is sampled.
  * Value must be determined by time taken by the slave.
  */
-#define T_ACC8	100
+#define T_ACC8	10
 
 /*
  * T_OH8
@@ -67,21 +69,12 @@ typedef struct p_i8080
  */
 #define T_OH8	100
 
+#define T_CC	10
+
 
 void i8080_init(i8080_handler &i8080_port);
-
-unsigned char i8080_write_data(	char data_buffer[],
-								unsigned int n,
-								i8080_handler &i8080_port);
-
-unsigned char i8080_write_command(	unsigned char command,
-							i8080_handler &i8080_port);
-
-
-unsigned char i8080_read_status_flag(i8080_handler &i8080_port);
-
-unsigned char i8080_read_status_flag(i8080_handler &i8080_port);
-
+unsigned char i8080_read(unsigned char A0,i8080_handler &i8080_port);
+void i8080_write(unsigned char A0,unsigned char data,i8080_handler &i8080_port);
 
 
 #endif /* 8080_MASTER_H_ */

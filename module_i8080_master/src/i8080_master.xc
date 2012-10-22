@@ -15,114 +15,98 @@
 ******************************************************************/
 
 
-#define	WAITING			0b1110
-#define CS_A0_0			0b0110
-#define CS_WR_A0_0		0b0100		//Write data and display parameters
-#define	CS_RD_A0_0		0b0010		//Read status
-#define CS_A0_1			0b0111
-#define CS_WR_A0_1		0b0101		//Write command
-#define	CS_RD_A0_1		0b0011		//Read display data and cursor address
-
-
-
+#define	IDLE			0b1110
+#define CS				0b0110
+#define CS_WR			0b0100
+#define CS_RD			0b0010
 
 
 void i8080_init(i8080_handler &i8080_port)
 {
+#pragma xta endpoint "IDLE"
+	i8080_port.control_port <: IDLE;
 	i8080_port.data_port <: 0xff;
-	i8080_port.control_port <: WAITING;
+#pragma xta endpoint "RESET"
 	i8080_port.reset <: 1;
 }
 
-unsigned char i8080_write_data(	char data_buffer[],
-								unsigned int n,
-								i8080_handler &i8080_port)
+unsigned char i8080_read(unsigned char A0,i8080_handler &i8080_port)
 {
-	unsigned short i, temp;
+	unsigned time;
+	unsigned char data;
+		timer t;
+
+		while (peek(i8080_port.control_port)!=IDLE); // wait for bus idle before initiating transaction.
+
+			/*Change direction of data bus*/
+			i8080_port.data_port :> void;
+
+			/*pull down CS*/
+	#pragma xta endpoint "RD_CS"
+			i8080_port.control_port <: (char) (CS|A0);
+			/*Start write strobe after address setup time*/
+	#pragma xta endpoint "RD_ASSERT"
+			i8080_port.control_port <: (char) (CS_RD|A0);
+			t:> time;
+			t when timerafter(time+T_ACC8) :> void;
+			/*Read from data port*/
+			i8080_port.data_port :> data;
+			t :> time;
+			t when timerafter(time+T_CC) :> void;
+	#pragma xta endpoint "RD_REL"
+			i8080_port.control_port <: (char) (CS|A0);
+	#pragma xta endpoint "RD_END"
+			i8080_port.control_port <: IDLE;
+			i8080_port.data_port <:0xFF;
+
+			return data;
+
+
+}
+void i8080_write(unsigned char A0, unsigned char data,i8080_handler &i8080_port)
+{
 	unsigned time;
 	timer t;
-	if(peek(i8080_port.control_port)!=WAITING)
-	{
-		return 0;
-	}
-	else
-	{
-		for(i=0;i<n;i++)
-		{
-			/*pull down A0 and CS*/
-			i8080_port.control_port <: CS_A0_0;
-			/*Start write strobe after address setup time*/
-			t:> time;
-			t when timerafter(time+T_AW8) :> void;
-			i8080_port.control_port <: CS_WR_A0_0;
-			i8080_port.data_port <: data_buffer[i];
-			t:> time;
-			t when timerafter(time+T_DS8) :> void;
-			i8080_port.control_port <: CS_A0_0;
-			t:> time;
-			t when timerafter(time+T_DH8) :> void;
-			i8080_port.control_port <: WAITING;
-		}
-	}
-}
 
-unsigned char i8080_write_command(	unsigned char command,
-							i8080_handler &i8080_port)
-{
-	unsigned time, temp;
-	timer t;
-	if(peek(i8080_port.control_port)!=WAITING)
-	{
-		return 0;
-	}
-	else
-	{
+	while (peek(i8080_port.control_port)!=IDLE); // wait for bus idle before initiating transaction.
+
 		/*pull down CS*/
-		i8080_port.control_port <: CS_A0_1;
-		/*Start write strobe after address setup time*/
-		t:> time;
-		t when timerafter(time+T_AW8) :> void;
-		i8080_port.control_port <: CS_WR_A0_1;
-		i8080_port.data_port <: command;
-		t:> time;
+#pragma xta endpoint "WR_CS"
+		i8080_port.control_port <: (char) (CS|A0);
+#pragma xta endpoint "WR_ASSERT"
+		i8080_port.control_port  <: (char) (CS_WR|A0);
+#pragma xta endpoint "WR_DATA"
+		i8080_port.data_port <: data;
+		t :> time;
 		t when timerafter(time+T_DS8) :> void;
-		i8080_port.control_port <: CS_A0_1;
-		t:> time;
-		t when timerafter(time+T_DH8) :> void;
-		i8080_port.control_port <: WAITING;
-	}
-}
+#pragma xta endpoint "WR_REL"
+		i8080_port.control_port <: (char) (CS|A0);
+#pragma xta endpoint "WR_END"
+		i8080_port.control_port <: IDLE;
+#pragma xta endpoint "WR_DATA_REL"
+		i8080_port.data_port <: 0xff;
 
-unsigned char i8080_read_status_flag(i8080_handler &i8080_port)
-{
-	unsigned time, temp;
-	timer t;
-	if(peek(i8080_port.control_port)!=WAITING)
-	{
-		return 0;
-	}
-	else
-	{
-		/*pull down CS*/
-		i8080_port.control_port <: CS_A0_1;
-		/*Start write strobe after address setup time*/
-		t:> time;
-		t when timerafter(time+T_AW8) :> void;
-		/*Change direction of data bus*/
-		i8080_port.data_port :> void;
-		i8080_port.control_port <: CS_RD_A0_1;
-		t:> time;
-		t when timerafter(time+T_ACC8) :> void;
-		/*Read from data port*/
-		i8080_port.data_port :> temp;
-		i8080_port.control_port <: CS_A0_1;
-		t:> time;
-		t when timerafter(time+T_OH8) :> void;
-		i8080_port.data_port <:0xFF;
-		i8080_port.control_port <: WAITING;
-		return temp;
-	}
 }
-
+#if 0
+#pragma xta command "config case best"
+#pragma xta command "echo tAW8-30ns(min)"
+#pragma xta command "analyze endpoints RD_CS RD_ASSERT"
+#pragma xta command "set required - 30.0 ns"
+#pragma xta command "echo tCC-220ns(min)"
+#pragma xta command "analyze endpoints RD_ASSERT RD_REL"
+#pragma xta command "set required - 220.0 ns"
+#pragma xta command "echo tAH8-10ns(min)"
+#pragma xta command "analyze endpoints RD_REL RD_END"
+#pragma xta command "set required - 10.0 ns"
+#pragma xta command "echo tAW8-30ns(min)"
+#pragma xta command "analyze endpoints WR_CS WR_ASSERT"
+#pragma xta command "set required - 50.0 ns"
+#pragma xta command "echo tCC-220ns(min)"
+#pragma xta command "analyze endpoints WR_ASSERT WR_REL"
+#pragma xta command "set required - 220.0 ns"
+#pragma xta command "echo tAH8-30ns(min)"
+#pragma xta command "analyze endpoints WR_REL WR_END"
+#pragma xta command "set required - 10.0 ns"
+#endif
 
 
